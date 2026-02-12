@@ -1,10 +1,11 @@
-use eframe::{App, Frame, NativeOptions, egui};
+use eframe::{App, Frame, NativeOptions, Renderer, egui};
 use rfd::FileDialog;
 use std::fs;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
     let options = NativeOptions {
+        renderer: Renderer::Wgpu,
         viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 650.0]),
         ..Default::default()
     };
