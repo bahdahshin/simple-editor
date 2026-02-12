@@ -2,9 +2,14 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches: ["main", "master", "work"]
-  pull_request:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -26,3 +31,10 @@ jobs:
           name: simple-editor-windows-exe
           path: target/release/simple-editor.exe
           if-no-files-found: error
+
+      - name: Publish EXE to GitHub Release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/release/simple-editor.exe
+          generate_release_notes: true

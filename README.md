@@ -29,14 +29,19 @@ The release binary is created at:
 - Linux/macOS: `target/release/simple-editor`
 - Windows (native build): `target/release/simple-editor.exe`
 
-## Download a Windows `.exe` from GitHub Actions
+## Download Windows `.exe` from GitHub Releases
 
-This repository includes a workflow at `.github/workflows/build-windows-exe.yml` that builds `simple-editor.exe` on `windows-latest` and uploads it as an artifact.
+The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `windows-latest`.
 
-### How to get the `.exe`
+- For every tag matching `v*` (example: `v0.1.0`), it publishes `simple-editor.exe` directly to the corresponding GitHub Release.
+- It also uploads the `.exe` as an Actions artifact (`simple-editor-windows-exe`) for manual runs, branch pushes, and PR builds.
 
-1. Push your branch to GitHub.
-2. Open the **Actions** tab.
-3. Run **Build Windows EXE** (or use the run triggered by push/PR).
-4. Open the workflow run and download the artifact named **`simple-editor-windows-exe`**.
-5. Extract/download `simple-editor.exe` and run it on Windows.
+### Create a release with `.exe`
+
+1. Create and push a version tag:
+   ```bash
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+2. Wait for the **Build Windows EXE** workflow to finish.
+3. Open GitHub **Releases** and download `simple-editor.exe` from the assets of tag `v0.1.0`.
