@@ -24,3 +24,17 @@ jobs:
 
       - name: Build release executable
         run: cargo build --release
+
+      - name: Upload EXE as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-editor-windows-exe
+          path: target/release/simple-editor.exe
+
+      - name: Publish pre-release and attach EXE
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          files: target/release/simple-editor.exe
