@@ -34,7 +34,6 @@ The release binary is created at:
 The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `windows-latest`.
 
 - For every tag matching `v*` (example: `v0.1.0`), it publishes `simple-editor.exe` directly to the corresponding GitHub Release.
-- It also uploads the `.exe` as an Actions artifact (`simple-editor-windows-exe`) for manual runs, branch pushes, and PR builds.
 
 ### Create a release with `.exe`
 
