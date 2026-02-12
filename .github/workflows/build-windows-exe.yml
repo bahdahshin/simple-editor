@@ -27,13 +27,6 @@ jobs:
       - name: Build release executable
         run: cargo build --release
 
-      - name: Upload Windows EXE artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: simple-editor-windows-exe
-          path: ${{ env.EXE_PATH }}
-          if-no-files-found: error
-
       - name: Publish EXE to GitHub Release (tag builds)
         if: startsWith(github.ref, 'refs/tags/')
         env:
