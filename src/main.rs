@@ -4,9 +4,22 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
+    match run_app(Renderer::Wgpu) {
+        Ok(()) => Ok(()),
+        Err(err) if is_no_suitable_wgpu_adapter(&err) => {
+            eprintln!(
+                "WGPU adapter unavailable ({err}). Falling back to OpenGL (glow) renderer..."
+            );
+            run_app(Renderer::Glow)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+fn run_app(renderer: Renderer) -> eframe::Result<()> {
     let options = NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 650.0]),
-        renderer: Renderer::Wgpu,
+        renderer,
         ..Default::default()
     };
 
@@ -15,6 +28,10 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|_cc| Ok(Box::<EditorApp>::default())),
     )
+}
+
+fn is_no_suitable_wgpu_adapter(err: &eframe::Error) -> bool {
+    err.to_string().contains("NoSuitableAdapterFound")
 }
 
 #[derive(Default)]
