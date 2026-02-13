@@ -48,4 +48,4 @@ The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `win
 
 ## Windows compatibility note
 
-This app now uses the `wgpu` renderer backend by default in native builds, which avoids the `egui_glow requires opengl 2.0+` startup error on systems with limited/older OpenGL support.
+This app tries the `wgpu` renderer backend first in native builds, and automatically falls back to the `glow` (OpenGL) renderer when `NoSuitableAdapterFound` occurs at startup.
