@@ -45,3 +45,7 @@ The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `win
    ```
 2. Wait for the **Build Windows EXE** workflow to finish.
 3. Open GitHub **Releases** and download `simple-editor.exe` from the assets of tag `v0.1.0-rc1`.
+
+## Windows compatibility note
+
+This app now uses the `wgpu` renderer backend by default in native builds, which avoids the `egui_glow requires opengl 2.0+` startup error on systems with limited/older OpenGL support.
