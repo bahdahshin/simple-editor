@@ -46,6 +46,6 @@ The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `win
 2. Wait for the **Build Windows EXE** workflow to finish.
 3. Open GitHub **Releases** and download `simple-editor.exe` from the assets of tag `v0.1.0-rc1`.
 
-## Windows compatibility note
+## Windows / Hyper-V compatibility note
 
-This app tries the `wgpu` renderer backend first in native builds, and automatically falls back to the `glow` (OpenGL) renderer when `NoSuitableAdapterFound` occurs at startup.
+This app is configured to use the `glow` (OpenGL) renderer directly to improve compatibility in virtualized Windows environments (including Hyper-V VMs) where `wgpu` GPU adapters are often unavailable.

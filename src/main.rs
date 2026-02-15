@@ -4,16 +4,9 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
-    match run_app(Renderer::Wgpu) {
-        Ok(()) => Ok(()),
-        Err(err) if is_no_suitable_wgpu_adapter(&err) => {
-            eprintln!(
-                "WGPU adapter unavailable ({err}). Falling back to OpenGL (glow) renderer..."
-            );
-            run_app(Renderer::Glow)
-        }
-        Err(err) => Err(err),
-    }
+    // Force software-friendly rendering path for VM environments where GPU-backed
+    // adapters are unavailable or unreliable (e.g. Hyper-V guests).
+    run_app(Renderer::Glow)
 }
 
 fn run_app(renderer: Renderer) -> eframe::Result<()> {
@@ -29,11 +22,6 @@ fn run_app(renderer: Renderer) -> eframe::Result<()> {
         Box::new(|_cc| Ok(Box::<EditorApp>::default())),
     )
 }
-
-fn is_no_suitable_wgpu_adapter(err: &eframe::Error) -> bool {
-    err.to_string().contains("NoSuitableAdapterFound")
-}
-
 #[derive(Default)]
 struct EditorApp {
     text: String,
