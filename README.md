@@ -48,4 +48,4 @@ The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `win
 
 ## Windows / Hyper-V compatibility note
 
-This app is configured to use the `glow` (OpenGL) renderer directly to improve compatibility in virtualized Windows environments (including Hyper-V VMs) where `wgpu` GPU adapters are often unavailable.
+This app now uses the `wgpu` renderer and forces the DirectX backend on Windows (`dx12,dx11`) to avoid OpenGL 2.0+ requirements in virtualized Windows environments (including Hyper-V VMs).

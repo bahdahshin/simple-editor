@@ -4,9 +4,15 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
-    // Force software-friendly rendering path for VM environments where GPU-backed
-    // adapters are unavailable or unreliable (e.g. Hyper-V guests).
-    run_app(Renderer::Glow)
+    // Force DirectX-backed wgpu on Windows to avoid OpenGL requirements on hosts
+    // where GL 2.0+ is unavailable (common in some VM/RDP configurations).
+    if cfg!(target_os = "windows") {
+        // SAFETY: This runs before any threads are spawned and before initializing
+        // wgpu, which is the required context for process environment mutation.
+        unsafe { std::env::set_var("WGPU_BACKEND", "dx12,dx11") };
+    }
+
+    run_app(Renderer::Wgpu)
 }
 
 fn run_app(renderer: Renderer) -> eframe::Result<()> {
