@@ -49,3 +49,50 @@ The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `win
    ```
 2. Wait for the **Build Windows EXE** workflow to finish.
 3. Open GitHub **Releases** and download `simple-editor.exe` from the assets of tag `v0.1.0-rc1`.
+
+## GitHub Actions workflow used for pre-releases
+
+The repository workflow is:
+
+```yaml
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: ["main", "master", "work"]
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release executable
+        run: cargo build --release
+
+      - name: Upload EXE as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simple-editor-windows-exe
+          path: target/release/simple-editor.exe
+
+      - name: Publish pre-release and attach EXE
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          files: target/release/simple-editor.exe
+```
