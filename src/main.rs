@@ -224,10 +224,10 @@ impl EditorApp {
             egui_state.take_egui_input(&window)
         };
 
-        self.egui_ctx
-            .set_pixels_per_point(window.scale_factor() as f32);
+        let egui_ctx = self.egui_ctx.clone();
+        egui_ctx.set_pixels_per_point(window.scale_factor() as f32);
 
-        let full_output = self.egui_ctx.run(raw_input, |ctx| self.ui(ctx));
+        let full_output = egui_ctx.run(raw_input, |ctx| self.ui(ctx));
         let egui::FullOutput {
             platform_output,
             textures_delta,
@@ -242,9 +242,7 @@ impl EditorApp {
 
         self.apply_textures(textures_delta);
 
-        let clipped_primitives = self
-            .egui_ctx
-            .tessellate(shapes, self.egui_ctx.pixels_per_point());
+        let clipped_primitives = egui_ctx.tessellate(shapes, egui_ctx.pixels_per_point());
 
         let mut pixmap = match Pixmap::new(size.width, size.height) {
             Some(pixmap) => pixmap,
