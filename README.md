@@ -1,16 +1,14 @@
 # Simple Rust Text Editor
 
-A lightweight desktop text editor written in Rust using `egui/eframe`.
+A lightweight desktop text editor written in Rust using `winit` + `softbuffer`.
 
 ## Features
 
-- New file
-- Open file
-- Save file
-- Save file as...
-- Dirty-state indicator (`*` in title)
-- Status bar messages
-- Monospace multiline editor area
+- New file (`Ctrl+N`)
+- Open file (`Ctrl+O`)
+- Save file / save as (`Ctrl+S`)
+- Monospace software-rendered text view
+- Status bar with hints and operation feedback
 
 ## Run locally
 
@@ -45,7 +43,3 @@ The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `win
    ```
 2. Wait for the **Build Windows EXE** workflow to finish.
 3. Open GitHub **Releases** and download `simple-editor.exe` from the assets of tag `v0.1.0-rc1`.
-
-## Windows / Hyper-V compatibility note
-
-This app now uses the `wgpu` renderer and forces the DirectX backend on Windows (`dx12,dx11`) to avoid OpenGL 2.0+ requirements in virtualized Windows environments (including Hyper-V VMs).
