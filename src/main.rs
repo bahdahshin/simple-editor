@@ -1,39 +1,39 @@
-use eframe::{App, Frame, NativeOptions, Renderer, egui};
 use rfd::FileDialog;
+use softbuffer::{Context, Surface};
 use std::fs;
+use std::num::NonZeroU32;
 use std::path::PathBuf;
+use std::rc::Rc;
+use winit::application::ApplicationHandler;
+use winit::dpi::LogicalSize;
+use winit::event::{ElementState, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, EventLoop};
+use winit::keyboard::{Key, ModifiersState, NamedKey};
+use winit::window::{Window, WindowAttributes, WindowId};
 
-fn main() -> eframe::Result<()> {
-    // Force DirectX-backed wgpu on Windows to avoid OpenGL requirements on hosts
-    // where GL 2.0+ is unavailable (common in some VM/RDP configurations).
-    if cfg!(target_os = "windows") {
-        // SAFETY: This runs before any threads are spawned and before initializing
-        // wgpu, which is the required context for process environment mutation.
-        unsafe { std::env::set_var("WGPU_BACKEND", "dx12,dx11") };
-    }
+const BG: u32 = 0x00F6F6F6;
+const FG: u32 = 0x001E1E1E;
+const STATUS_BG: u32 = 0x00E6E6E6;
+const STATUS_H: u32 = 22;
+const CHAR_W: u32 = 8;
+const CHAR_H: u32 = 8;
+const PADDING: u32 = 8;
 
-    run_app(Renderer::Wgpu)
+fn main() {
+    let event_loop = EventLoop::new().expect("failed to create event loop");
+    let mut app = EditorApp::default();
+    event_loop.run_app(&mut app).expect("event loop failed");
 }
 
-fn run_app(renderer: Renderer) -> eframe::Result<()> {
-    let options = NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([900.0, 650.0]),
-        renderer,
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "Simple Rust Text Editor",
-        options,
-        Box::new(|_cc| Ok(Box::<EditorApp>::default())),
-    )
-}
 #[derive(Default)]
 struct EditorApp {
+    window: Option<Rc<Window>>,
+    surface: Option<Surface<Rc<Window>, Rc<Window>>>,
+    context: Option<Context<Rc<Window>>>,
     text: String,
     current_file: Option<PathBuf>,
     status: String,
-    dirty: bool,
+    modifiers: ModifiersState,
 }
 
 impl EditorApp {
@@ -44,34 +44,12 @@ impl EditorApp {
             .and_then(|p| p.file_name())
             .and_then(|n| n.to_str())
             .unwrap_or("Untitled");
-
-        if self.dirty {
-            format!("{name} *")
-        } else {
-            name.to_string()
-        }
+        format!("Simple Rust Text Editor — {name}")
     }
 
-    fn new_file(&mut self) {
-        self.text.clear();
-        self.current_file = None;
-        self.dirty = false;
-        self.status = "Created a new file".to_string();
-    }
-
-    fn open_file(&mut self) {
-        if let Some(path) = FileDialog::new().pick_file() {
-            match fs::read_to_string(&path) {
-                Ok(content) => {
-                    self.text = content;
-                    self.current_file = Some(path.clone());
-                    self.dirty = false;
-                    self.status = format!("Opened {}", path.display());
-                }
-                Err(err) => {
-                    self.status = format!("Failed to open file: {err}");
-                }
-            }
+    fn request_redraw(&self) {
+        if let Some(window) = &self.window {
+            window.request_redraw();
         }
     }
 
@@ -93,71 +71,244 @@ impl EditorApp {
         match fs::write(&path, &self.text) {
             Ok(_) => {
                 self.current_file = Some(path.clone());
-                self.dirty = false;
                 self.status = format!("Saved {}", path.display());
             }
             Err(err) => {
-                self.status = format!("Failed to save file: {err}");
+                self.status = format!("Save failed: {err}");
+            }
+        }
+        if let Some(window) = &self.window {
+            window.set_title(&self.title());
+        }
+    }
+
+    fn open_file(&mut self) {
+        if let Some(path) = FileDialog::new().pick_file() {
+            match fs::read_to_string(&path) {
+                Ok(content) => {
+                    self.text = content;
+                    self.current_file = Some(path.clone());
+                    self.status = format!("Opened {}", path.display());
+                    if let Some(window) = &self.window {
+                        window.set_title(&self.title());
+                    }
+                }
+                Err(err) => {
+                    self.status = format!("Open failed: {err}");
+                }
+            }
+        }
+    }
+
+    fn new_file(&mut self) {
+        self.text.clear();
+        self.current_file = None;
+        self.status = "Created a new file".to_string();
+        if let Some(window) = &self.window {
+            window.set_title(&self.title());
+        }
+    }
+
+    fn draw(&mut self, width: u32, height: u32) {
+        let Some(surface) = self.surface.as_mut() else {
+            return;
+        };
+
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        let Some(w_nz) = NonZeroU32::new(width) else {
+            return;
+        };
+        let Some(h_nz) = NonZeroU32::new(height) else {
+            return;
+        };
+        if surface.resize(w_nz, h_nz).is_err() {
+            return;
+        }
+
+        let Ok(mut buffer) = surface.buffer_mut() else {
+            return;
+        };
+
+        for px in buffer.iter_mut() {
+            *px = BG;
+        }
+
+        let status_top = height.saturating_sub(STATUS_H);
+        fill_rect(
+            &mut buffer,
+            width,
+            0,
+            status_top,
+            width,
+            STATUS_H,
+            STATUS_BG,
+        );
+
+        let text_height = status_top.saturating_sub(PADDING);
+        draw_multiline_text(
+            &mut buffer,
+            width,
+            PADDING,
+            PADDING,
+            &self.text,
+            FG,
+            text_height,
+        );
+
+        let status = if self.status.is_empty() {
+            "Shortcuts: Ctrl+N New | Ctrl+O Open | Ctrl+S Save"
+        } else {
+            &self.status
+        };
+        draw_text(
+            &mut buffer,
+            width,
+            PADDING,
+            status_top + 7,
+            status,
+            FG,
+            width.saturating_sub(PADDING),
+        );
+
+        let _ = buffer.present();
+    }
+}
+
+impl ApplicationHandler for EditorApp {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let attrs = WindowAttributes::default()
+            .with_title(self.title())
+            .with_inner_size(LogicalSize::new(900.0, 650.0));
+        let window = Rc::new(
+            event_loop
+                .create_window(attrs)
+                .expect("failed to create window"),
+        );
+
+        let context = Context::new(window.clone()).expect("failed to create softbuffer context");
+        let surface =
+            Surface::new(&context, window.clone()).expect("failed to create softbuffer surface");
+
+        self.context = Some(context);
+        self.surface = Some(surface);
+        self.window = Some(window);
+        self.request_redraw();
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::RedrawRequested => {
+                if let Some(window) = &self.window {
+                    let size = window.inner_size();
+                    self.draw(size.width, size.height);
+                }
+            }
+            WindowEvent::Resized(_) => self.request_redraw(),
+            WindowEvent::ModifiersChanged(m) => self.modifiers = m.state(),
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed {
+                    let ctrl = self.modifiers.control_key();
+                    match &event.logical_key {
+                        Key::Character(ch) if ctrl && ch.eq_ignore_ascii_case("s") => {
+                            self.save_file();
+                            self.request_redraw();
+                            return;
+                        }
+                        Key::Character(ch) if ctrl && ch.eq_ignore_ascii_case("o") => {
+                            self.open_file();
+                            self.request_redraw();
+                            return;
+                        }
+                        Key::Character(ch) if ctrl && ch.eq_ignore_ascii_case("n") => {
+                            self.new_file();
+                            self.request_redraw();
+                            return;
+                        }
+                        Key::Named(NamedKey::Backspace) => {
+                            self.text.pop();
+                        }
+                        Key::Named(NamedKey::Enter) => self.text.push('\n'),
+                        _ => {
+                            if !ctrl {
+                                if let Some(text) = &event.text {
+                                    for ch in text.chars() {
+                                        if !ch.is_control() {
+                                            self.text.push(ch);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    self.request_redraw();
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn fill_rect(buffer: &mut [u32], width: u32, x: u32, y: u32, w: u32, h: u32, color: u32) {
+    let max_y = y.saturating_add(h);
+    let max_x = x.saturating_add(w);
+    for yy in y..max_y {
+        for xx in x..max_x {
+            let idx = (yy * width + xx) as usize;
+            if let Some(px) = buffer.get_mut(idx) {
+                *px = color;
             }
         }
     }
 }
 
-impl App for EditorApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
-        let mut window_title = format!("Simple Rust Text Editor — {}", self.title());
-        if self.status.is_empty() {
-            window_title.push_str("   ");
+fn draw_multiline_text(
+    buffer: &mut [u32],
+    width: u32,
+    x: u32,
+    y: u32,
+    text: &str,
+    color: u32,
+    max_height: u32,
+) {
+    let mut yy = y;
+    for line in text.lines() {
+        if yy.saturating_add(CHAR_H) > max_height {
+            break;
         }
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(window_title));
+        draw_text(buffer, width, x, yy, line, color, width.saturating_sub(x));
+        yy = yy.saturating_add(CHAR_H + 2);
+    }
+}
 
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                if ui.button("New").clicked() {
-                    self.new_file();
+fn draw_text(buffer: &mut [u32], width: u32, x: u32, y: u32, text: &str, color: u32, max_x: u32) {
+    let mut xx = x;
+    for ch in text.chars() {
+        if xx.saturating_add(CHAR_W) >= max_x {
+            break;
+        }
+        draw_glyph(buffer, width, xx, y, ch, color);
+        xx = xx.saturating_add(CHAR_W);
+    }
+}
+
+fn draw_glyph(buffer: &mut [u32], width: u32, x: u32, y: u32, ch: char, color: u32) {
+    let seed = ch as u32;
+    for row in 0..8_u32 {
+        for col in 0..8_u32 {
+            let border = row == 0 || row == 7 || col == 0 || col == 7;
+            let bit = ((seed >> ((row + col) % 16)) & 1) == 1;
+            if border || bit {
+                let px = x + col;
+                let py = y + row;
+                let idx = (py * width + px) as usize;
+                if let Some(pixel) = buffer.get_mut(idx) {
+                    *pixel = color;
                 }
-                if ui.button("Open").clicked() {
-                    self.open_file();
-                }
-                if ui.button("Save").clicked() {
-                    self.save_file();
-                }
-                if ui.button("Save As").clicked() {
-                    self.save_file_as();
-                }
-
-                ui.separator();
-
-                let file_label = self
-                    .current_file
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "No file selected".to_string());
-                ui.label(format!("File: {file_label}"));
-            });
-        });
-
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            let status = if self.status.is_empty() {
-                "Ready"
-            } else {
-                &self.status
-            };
-            ui.label(status);
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            let response = ui.add(
-                egui::TextEdit::multiline(&mut self.text)
-                    .desired_rows(30)
-                    .desired_width(f32::INFINITY)
-                    .font(egui::TextStyle::Monospace)
-                    .code_editor(),
-            );
-
-            if response.changed() {
-                self.dirty = true;
             }
-        });
+        }
     }
 }
