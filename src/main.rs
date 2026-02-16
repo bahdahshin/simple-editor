@@ -192,13 +192,7 @@ impl EditorApp {
     }
 
     fn render(&mut self) {
-        let Some(window) = &self.window else {
-            return;
-        };
-        let Some(surface) = self.surface.as_mut() else {
-            return;
-        };
-        let Some(egui_state) = self.egui_state.as_mut() else {
+        let Some(window) = self.window.as_ref().cloned() else {
             return;
         };
 
@@ -214,22 +208,43 @@ impl EditorApp {
             return;
         };
 
-        if surface.resize(width_nz, height_nz).is_err() {
-            return;
+        match self.surface.as_mut() {
+            Some(surface) => {
+                if surface.resize(width_nz, height_nz).is_err() {
+                    return;
+                }
+            }
+            None => return,
         }
 
-        let raw_input = egui_state.take_egui_input(window);
+        let raw_input = {
+            let Some(egui_state) = self.egui_state.as_mut() else {
+                return;
+            };
+            egui_state.take_egui_input(&window)
+        };
+
         self.egui_ctx
             .set_pixels_per_point(window.scale_factor() as f32);
 
         let full_output = self.egui_ctx.run(raw_input, |ctx| self.ui(ctx));
-        egui_state.handle_platform_output(window, full_output.platform_output);
+        let egui::FullOutput {
+            platform_output,
+            textures_delta,
+            shapes,
+            viewport_output,
+            ..
+        } = full_output;
 
-        self.apply_textures(full_output.textures_delta);
+        if let Some(egui_state) = self.egui_state.as_mut() {
+            egui_state.handle_platform_output(&window, platform_output);
+        }
+
+        self.apply_textures(textures_delta);
 
         let clipped_primitives = self
             .egui_ctx
-            .tessellate(full_output.shapes, self.egui_ctx.pixels_per_point());
+            .tessellate(shapes, self.egui_ctx.pixels_per_point());
 
         let mut pixmap = match Pixmap::new(size.width, size.height) {
             Some(pixmap) => pixmap,
@@ -242,7 +257,9 @@ impl EditorApp {
             self.paint_primitive(&mut pixmap, primitive);
         }
 
-        if let Ok(mut buffer) = surface.buffer_mut() {
+        if let Some(surface) = self.surface.as_mut()
+            && let Ok(mut buffer) = surface.buffer_mut()
+        {
             let src = pixmap.data();
             for (idx, pixel) in buffer.iter_mut().enumerate() {
                 let base = idx * 4;
@@ -254,8 +271,7 @@ impl EditorApp {
             let _ = buffer.present();
         }
 
-        if full_output
-            .viewport_output
+        if viewport_output
             .get(&egui::ViewportId::ROOT)
             .is_some_and(|viewport| !viewport.repaint_delay.is_zero())
         {
