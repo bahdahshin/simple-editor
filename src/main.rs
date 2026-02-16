@@ -296,19 +296,145 @@ fn draw_text(buffer: &mut [u32], width: u32, x: u32, y: u32, text: &str, color: 
 }
 
 fn draw_glyph(buffer: &mut [u32], width: u32, x: u32, y: u32, ch: char, color: u32) {
-    let seed = ch as u32;
-    for row in 0..8_u32 {
-        for col in 0..8_u32 {
-            let border = row == 0 || row == 7 || col == 0 || col == 7;
-            let bit = ((seed >> ((row + col) % 16)) & 1) == 1;
-            if border || bit {
-                let px = x + col;
-                let py = y + row;
-                let idx = (py * width + px) as usize;
-                if let Some(pixel) = buffer.get_mut(idx) {
-                    *pixel = color;
-                }
-            }
+    let segments = glyph_segments(ch);
+    draw_segment_glyph(buffer, width, x, y, segments, color);
+}
+
+fn glyph_segments(ch: char) -> u16 {
+    // 7-segment style bits: 0 top, 1 UL, 2 UR, 3 mid, 4 LL, 5 LR, 6 bottom, 7 center vert,
+    // 8 dot, 9 comma, 10 apostrophe.
+    const TOP: u16 = 1 << 0;
+    const UL: u16 = 1 << 1;
+    const UR: u16 = 1 << 2;
+    const MID: u16 = 1 << 3;
+    const LL: u16 = 1 << 4;
+    const LR: u16 = 1 << 5;
+    const BOT: u16 = 1 << 6;
+    const CV: u16 = 1 << 7;
+    const DOT: u16 = 1 << 8;
+    const COMMA: u16 = 1 << 9;
+    const APOSTROPHE: u16 = 1 << 10;
+
+    match ch {
+        '0' => TOP | UL | UR | LL | LR | BOT,
+        '1' => UR | LR,
+        '2' => TOP | UR | MID | LL | BOT,
+        '3' => TOP | UR | MID | LR | BOT,
+        '4' => UL | UR | MID | LR,
+        '5' => TOP | UL | MID | LR | BOT,
+        '6' => TOP | UL | MID | LL | LR | BOT,
+        '7' => TOP | UR | LR,
+        '8' => TOP | UL | UR | MID | LL | LR | BOT,
+        '9' => TOP | UL | UR | MID | LR | BOT,
+        'A' | 'a' => TOP | UL | UR | MID | LL | LR,
+        'B' | 'b' => UL | MID | LL | LR | BOT,
+        'C' | 'c' => TOP | UL | LL | BOT,
+        'D' | 'd' => UR | MID | LL | LR | BOT,
+        'E' | 'e' => TOP | UL | MID | LL | BOT,
+        'F' | 'f' => TOP | UL | MID | LL,
+        'G' | 'g' => TOP | UL | LL | LR | BOT | MID,
+        'H' | 'h' => UL | UR | MID | LL | LR,
+        'I' | 'i' => UR | LR,
+        'J' | 'j' => UR | LR | BOT,
+        'K' | 'k' => UL | MID | LL | UR | LR,
+        'L' | 'l' => UL | LL | BOT,
+        'M' | 'm' => UL | UR | LL | LR | CV,
+        'N' | 'n' => UL | UR | LL | LR | CV,
+        'O' | 'o' => TOP | UL | UR | LL | LR | BOT,
+        'P' | 'p' => TOP | UL | UR | MID | LL,
+        'Q' | 'q' => TOP | UL | UR | LL | LR | BOT | CV,
+        'R' | 'r' => TOP | UL | UR | MID | LL | LR,
+        'S' | 's' => TOP | UL | MID | LR | BOT,
+        'T' | 't' => TOP | CV,
+        'U' | 'u' => UL | UR | LL | LR | BOT,
+        'V' | 'v' => UL | UR | LL | LR | BOT,
+        'W' | 'w' => UL | UR | LL | LR | BOT | CV,
+        'X' | 'x' => UL | UR | MID | LL | LR,
+        'Y' | 'y' => UL | UR | MID | LR | BOT,
+        'Z' | 'z' => TOP | UR | MID | LL | BOT,
+        '+' => MID | CV,
+        '-' => MID,
+        '_' => BOT,
+        '|' => CV,
+        '/' => UR | LL,
+        '\\' => UL | LR,
+        ':' => DOT,
+        ';' => DOT | COMMA,
+        ',' => COMMA,
+        '.' => DOT,
+        '\'' => APOSTROPHE,
+        '!' => CV | DOT,
+        '?' => TOP | UR | MID | DOT,
+        '(' => UL | LL,
+        ')' => UR | LR,
+        '[' => TOP | UL | LL | BOT,
+        ']' => TOP | UR | LR | BOT,
+        '=' => TOP | MID,
+        '"' => APOSTROPHE,
+        ' ' => 0,
+        _ => TOP | UL | UR | MID | LL | LR | BOT,
+    }
+}
+
+fn draw_segment_glyph(buffer: &mut [u32], width: u32, x: u32, y: u32, segments: u16, color: u32) {
+    let mut plot = |px: u32, py: u32| {
+        let idx = (py * width + px) as usize;
+        if let Some(pixel) = buffer.get_mut(idx) {
+            *pixel = color;
         }
+    };
+
+    let has = |bit: u8| (segments & (1 << bit)) != 0;
+
+    if has(0) {
+        for xx in x + 1..=x + 5 {
+            plot(xx, y);
+        }
+    }
+    if has(1) {
+        for yy in y + 1..=y + 3 {
+            plot(x, yy);
+        }
+    }
+    if has(2) {
+        for yy in y + 1..=y + 3 {
+            plot(x + 6, yy);
+        }
+    }
+    if has(3) {
+        for xx in x + 1..=x + 5 {
+            plot(xx, y + 3);
+        }
+    }
+    if has(4) {
+        for yy in y + 4..=y + 6 {
+            plot(x, yy);
+        }
+    }
+    if has(5) {
+        for yy in y + 4..=y + 6 {
+            plot(x + 6, yy);
+        }
+    }
+    if has(6) {
+        for xx in x + 1..=x + 5 {
+            plot(xx, y + 6);
+        }
+    }
+    if has(7) {
+        for yy in y + 1..=y + 6 {
+            plot(x + 3, yy);
+        }
+    }
+    if has(8) {
+        plot(x + 3, y + 7);
+    }
+    if has(9) {
+        plot(x + 3, y + 7);
+        plot(x + 2, y + 7);
+    }
+    if has(10) {
+        plot(x + 4, y + 1);
+        plot(x + 4, y);
     }
 }
