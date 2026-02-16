@@ -1,5 +1,8 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use dioxus::prelude::*;
 use rfd::FileDialog;
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 
@@ -54,7 +57,30 @@ textarea {
 "#;
 
 fn main() {
-    dioxus::launch(App);
+    #[cfg(target_os = "windows")]
+    {
+        let config = dioxus::desktop::Config::new().with_data_directory(webview_data_dir());
+        dioxus::LaunchBuilder::desktop()
+            .with_cfg(config)
+            .launch(App);
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        dioxus::launch(App);
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn webview_data_dir() -> PathBuf {
+    let mut base = env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("APPDATA").map(PathBuf::from))
+        .unwrap_or_else(env::temp_dir);
+
+    base.push("simple-editor");
+    base.push("webview");
+    base
 }
 
 #[component]
