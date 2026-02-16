@@ -1,14 +1,25 @@
 # Simple Rust Text Editor
 
-A lightweight desktop text editor written in Rust using `winit` + `softbuffer`.
+A lightweight desktop text editor written in Rust with **Dioxus Desktop** and native file dialogs via `rfd`.
 
-## Features
+## What the app does
 
-- New file (`Ctrl+N`)
-- Open file (`Ctrl+O`)
-- Save file / save as (`Ctrl+S`)
-- Monospace software-rendered text view
-- Status bar with hints and operation feedback
+The current editor implementation provides:
+
+- **New**: clears the current buffer and resets the active file path.
+- **Open**: opens a native file picker and loads the selected text file.
+- **Save**: writes to the current file, or opens a native save dialog if the file is new.
+- **Live status messages**: shows operation results (ready/open/save/errors) in the toolbar.
+- **Dynamic window title**: displays the current filename or `Untitled` when no file is selected.
+- **Single-window desktop UI**: toolbar + full-height textarea, styled with in-app CSS.
+
+> Note: this UI currently exposes file actions through toolbar buttons (not keyboard shortcuts).
+
+## Tech stack
+
+- Rust 2024 edition
+- `dioxus` (desktop feature) for the desktop/webview UI
+- `rfd` for native open/save dialogs
 
 ## Run locally
 
@@ -16,30 +27,45 @@ A lightweight desktop text editor written in Rust using `winit` + `softbuffer`.
 cargo run
 ```
 
-## Build release locally
+## Build locally
 
 ```bash
 cargo build --release
 ```
 
-The release binary is created at:
+Output binary:
 
 - Linux/macOS: `target/release/simple-editor`
-- Windows (native build): `target/release/simple-editor.exe`
+- Windows: `target/release/simple-editor.exe`
 
-## Download Windows `.exe` from GitHub pre-releases
+## GitHub Actions workflow
 
-The workflow at `.github/workflows/build-windows-exe.yml` builds the app on `windows-latest`.
+The repository includes `.github/workflows/build-windows-exe.yml` with workflow name **Build Windows EXE**.
 
-- For every tag matching `v*` (example: `v0.1.0-rc1`), it creates a **pre-release** and attaches `simple-editor.exe` to that release.
-- It also uploads the `.exe` as an Actions artifact (`simple-editor-windows-exe`) for manual runs, branch pushes, and PR builds.
+### Triggers
 
-### Create a pre-release with `.exe`
+The workflow runs on:
 
-1. Create and push a version tag:
-   ```bash
-   git tag v0.1.0-rc1
-   git push origin v0.1.0-rc1
-   ```
-2. Wait for the **Build Windows EXE** workflow to finish.
-3. Open GitHub **Releases** and download `simple-editor.exe` from the assets of tag `v0.1.0-rc1`.
+- Manual dispatch (`workflow_dispatch`)
+- Pull requests (`pull_request`)
+- Pushes to branches: `main`, `master`, `work`
+- Pushes of tags matching `v*`
+
+### What it does
+
+On `windows-latest`, it:
+
+1. Checks out the repository.
+2. Installs stable Rust.
+3. Builds the project in release mode.
+4. Uploads `target/release/simple-editor.exe` as an artifact named `simple-editor-windows-exe`.
+5. For `v*` tags, creates/updates a **pre-release** and attaches the `.exe`.
+
+## Creating a pre-release with the Windows executable
+
+```bash
+git tag v0.1.0-rc1
+git push origin v0.1.0-rc1
+```
+
+Then open GitHub **Releases** and download `simple-editor.exe` from that tag's release assets after the workflow completes.
