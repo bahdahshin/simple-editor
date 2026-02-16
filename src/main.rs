@@ -1,4 +1,4 @@
-use egui::{Color32, Key, Modifiers, TextureId};
+use egui::{Key, Modifiers, TextureId};
 use egui_winit::State as EguiWinitState;
 use rfd::FileDialog;
 use softbuffer::{Context, Surface};
@@ -254,7 +254,11 @@ impl EditorApp {
             let _ = buffer.present();
         }
 
-        if !full_output.repaint_after.is_zero() {
+        if full_output
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .is_some_and(|viewport| !viewport.repaint_delay.is_zero())
+        {
             self.request_redraw();
         }
     }
@@ -265,7 +269,7 @@ impl EditorApp {
             let (src_width, src_height, src_rgba) = match image {
                 egui::ImageData::Color(color_image) => {
                     let mut rgba = Vec::with_capacity(color_image.pixels.len() * 4);
-                    for color in color_image.pixels {
+                    for color in &color_image.pixels {
                         rgba.push(color.r());
                         rgba.push(color.g());
                         rgba.push(color.b());
@@ -460,8 +464,8 @@ fn raster_triangle(
         return;
     }
 
-    let data = pixmap.data_mut();
     let width = pixmap.width() as usize;
+    let data = pixmap.data_mut();
 
     for y in min_y..max_y {
         for x in min_x..max_x {
