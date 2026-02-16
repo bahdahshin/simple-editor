@@ -3,6 +3,56 @@ use rfd::FileDialog;
 use std::fs;
 use std::path::PathBuf;
 
+const APP_CSS: &str = r#"
+body {
+    margin: 0;
+    background: #f6f6f6;
+    color: #1e1e1e;
+    font-family: Consolas, 'Courier New', monospace;
+}
+.app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 8px;
+    box-sizing: border-box;
+    gap: 8px;
+}
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e6e6e6;
+    padding: 8px;
+    border-radius: 6px;
+}
+button {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 14px;
+    padding: 4px 10px;
+}
+textarea {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: 1px solid #c6c6c6;
+    border-radius: 6px;
+    padding: 8px;
+    box-sizing: border-box;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 16px;
+    line-height: 1.35;
+    color: #1e1e1e;
+    background: #ffffff;
+}
+.status {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.9;
+}
+"#;
+
 fn main() {
     dioxus::launch(App);
 }
@@ -60,57 +110,8 @@ fn App() -> Element {
 
     rsx! {
         document::Title { "{title}" }
-        style {
-            r#"
-            body {
-                margin: 0;
-                background: #f6f6f6;
-                color: #1e1e1e;
-                font-family: Consolas, 'Courier New', monospace;
-            }
-            .app {
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
-                padding: 8px;
-                box-sizing: border-box;
-                gap: 8px;
-            }
-            .toolbar {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                background: #e6e6e6;
-                padding: 8px;
-                border-radius: 6px;
-            }
-            button {
-                font-family: Consolas, 'Courier New', monospace;
-                font-size: 14px;
-                padding: 4px 10px;
-            }
-            textarea {
-                flex: 1;
-                width: 100%;
-                resize: none;
-                border: 1px solid #c6c6c6;
-                border-radius: 6px;
-                padding: 8px;
-                box-sizing: border-box;
-                font-family: Consolas, 'Courier New', monospace;
-                font-size: 16px;
-                line-height: 1.35;
-                color: #1e1e1e;
-                background: #ffffff;
-            }
-            .status {
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                opacity: 0.9;
-            }
-            "#
-        }
+        style { "{APP_CSS}" }
+
 
         div { class: "app",
             div { class: "toolbar",
