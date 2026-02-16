@@ -1,22 +1,28 @@
-# Simple Rust Text Editor
+# Simple CPU Text Editor
 
-A lightweight desktop text editor written in Rust using `winit` + `softbuffer`.
+A lightweight desktop text editor written in Rust.
+
+This app intentionally uses a CPU-only rendering path built from:
+
+- `egui` for editor UI/widgets and text editing behavior
+- `winit` for windowing and input events
+- `softbuffer` for presenting a software framebuffer
+- `tiny-skia` for the CPU render target
 
 ## Features
 
-- New file (`Ctrl+N`)
-- Open file (`Ctrl+O`)
-- Save file / save as (`Ctrl+S`)
-- Monospace software-rendered text view
-- Status bar with hints and operation feedback
+- Multi-line text editing
+- New/Open/Save/Save As actions
+- Keyboard shortcuts (`Ctrl+N`, `Ctrl+O`, `Ctrl+S`)
+- File status feedback and dirty indicator in the window title
 
-## Run locally
+## Run
 
 ```bash
 cargo run
 ```
 
-## Build release locally
+## Build
 
 ```bash
 cargo build --release
